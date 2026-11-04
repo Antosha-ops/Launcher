@@ -50,8 +50,10 @@ import java.time.ZoneOffset;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -64,8 +66,11 @@ public class LauncherBackendImpl implements LauncherBackendAPI, TextureUploadExt
 
     private final ClientDownloadImpl clientDownloadImpl = new ClientDownloadImpl(this);
     private volatile MainCallback callback;
-    ExecutorService executorService;
+    ScheduledExecutorService executorService;
     private volatile AuthMethod authMethod;
+    // Launcher self-update
+    private volatile CoreFeatureAPI.LauncherUpdateInfo pendingLauncherUpdate;
+    private final AtomicBoolean launcherUpdateInProgress = new AtomicBoolean();
     // Settings
     private SettingsManager settingsManager;
     private NewLauncherSettings allSettings;
@@ -169,24 +174,9 @@ public class LauncherBackendImpl implements LauncherBackendAPI, TextureUploadExt
         }
         return feature.thenCombineAsync(LauncherAPIHolder.core().getAuthMethods(), (updatesInfo, authMethods) -> {
             if(updatesInfo.required()) {
-                Path tempFile;
-                try {
-                    tempFile = LauncherUpdater.prepareUpdate(URI.create(updatesInfo.url()).toURL());
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-                callback.onShutdown();
-                shutdown();
-                Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                    try(InputStream input = IOHelper.newInput(tempFile)) {
-                        try(OutputStream output = IOHelper.newOutput(LauncherUpdater.getLauncherPath())) {
-                            input.transferTo(output);
-                        }
-                        LauncherUpdater.restart();
-                    } catch (IOException e) {
-                        logger.error("", e);
-                    }
-                }));
+                installLauncherUpdateAndRestart(updatesInfo);
+            } else {
+                startLauncherUpdateChecks(updatesInfo.checkIntervalMinutes());
             }
             if(backendSettings.authId != null) {
                 for(var e : authMethods) {
@@ -198,6 +188,88 @@ public class LauncherBackendImpl implements LauncherBackendAPI, TextureUploadExt
             }
             return new LauncherInitData(authMethods);
         }, executorService);
+    }
+
+    private void startLauncherUpdateChecks(long intervalMinutes) {
+        if (intervalMinutes <= 0 || isTestMode()) {
+            return;
+        }
+        logger.info("Periodic launcher update check enabled: every {} min", intervalMinutes);
+        executorService.scheduleWithFixedDelay(this::checkLauncherUpdate, intervalMinutes, intervalMinutes, TimeUnit.MINUTES);
+    }
+
+    private void checkLauncherUpdate() {
+        if (launcherUpdateInProgress.get()) {
+            return;
+        }
+        try {
+            LauncherAPIHolder.core().checkUpdates().whenComplete((info, error) -> {
+                if (error != null) {
+                    logger.warn("Periodic launcher update check failed: {}", error.toString());
+                    return;
+                }
+                if (info == null || !(info.available() || info.required())) {
+                    return;
+                }
+                if (info.url() == null) {
+                    logger.warn("New launcher version is available, but LaunchServer did not send a download URL");
+                    return;
+                }
+                logger.info("New launcher version is available");
+                pendingLauncherUpdate = info;
+                MainCallback mainCallback = callback;
+                if (mainCallback != null && !launcherUpdateInProgress.get()) {
+                    try {
+                        mainCallback.onLauncherUpdateAvailable(info);
+                    } catch (Throwable e) {
+                        logger.error("onLauncherUpdateAvailable failed", e);
+                    }
+                }
+            });
+        } catch (Throwable e) {
+            // An exception here would cancel all further scheduled checks
+            logger.warn("Periodic launcher update check failed", e);
+        }
+    }
+
+    @Override
+    public CompletableFuture<Void> applyLauncherUpdate() {
+        CoreFeatureAPI.LauncherUpdateInfo info = pendingLauncherUpdate;
+        if (info == null) {
+            return CompletableFuture.failedFuture(new LauncherBackendException("No launcher update available"));
+        }
+        if (!launcherUpdateInProgress.compareAndSet(false, true)) {
+            return CompletableFuture.failedFuture(new LauncherBackendException("Launcher update is already in progress"));
+        }
+        return CompletableFuture.runAsync(() -> installLauncherUpdateAndRestart(info), executorService)
+                .whenComplete((v, e) -> {
+                    if (e != null) {
+                        logger.error("Launcher update failed", e);
+                        launcherUpdateInProgress.set(false);
+                    }
+                });
+    }
+
+    private void installLauncherUpdateAndRestart(CoreFeatureAPI.LauncherUpdateInfo updateInfo) {
+        Path tempFile;
+        try {
+            tempFile = LauncherUpdater.prepareUpdate(URI.create(updateInfo.url()).toURL());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        // Register the hook before shutting down, so it is in place before the JVM starts exiting
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try(InputStream input = IOHelper.newInput(tempFile)) {
+                try(OutputStream output = IOHelper.newOutput(LauncherUpdater.getLauncherPath())) {
+                    input.transferTo(output);
+                }
+                LauncherUpdater.restart();
+            } catch (IOException e) {
+                logger.error("", e);
+            }
+        }));
+        callback.onShutdown();
+        shutdown();
     }
 
     public AuthFeatureAPI.AuthToken getAuthToken() {

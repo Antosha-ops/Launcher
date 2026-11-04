@@ -57,7 +57,9 @@ public class LauncherResponse extends SimpleResponse {
             sendResult(new LauncherRequestEvent(true, info.url()));
         } else {
             client.checkSign = true;
-            sendResult(new LauncherRequestEvent(false, null, createLauncherExtendedToken(), server.config.netty.security.launcherTokenExpire*1000));
+            LauncherRequestEvent event = new LauncherRequestEvent(false, null, createLauncherExtendedToken(), server.config.netty.security.launcherTokenExpire*1000);
+            event.updateCheckIntervalMinutes = Math.max(0, server.config.launcher.updateCheckIntervalMinutes);
+            sendResult(event);
         }
     }
 

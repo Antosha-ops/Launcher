@@ -1,6 +1,7 @@
 package pro.gravit.launcher.core.backend;
 
 import pro.gravit.launcher.core.LauncherNetworkAPI;
+import pro.gravit.launcher.core.api.features.CoreFeatureAPI;
 import pro.gravit.launcher.core.api.features.ProfileFeatureAPI;
 import pro.gravit.launcher.core.api.method.AuthMethod;
 import pro.gravit.launcher.core.api.method.AuthMethodPassword;
@@ -46,6 +47,13 @@ public interface LauncherBackendAPI {
     ResourceLayer makeResourceLayer(List<Path> overlayList);
     // Extensions
     <T extends Extension> T getExtension(Class<T> clazz);
+    // Launcher self-update
+    /**
+     * Downloads the launcher update reported by {@link MainCallback#onLauncherUpdateAvailable},
+     * then shuts the launcher down and restarts it with the new version.
+     * Completes exceptionally if no update is pending or the download fails.
+     */
+    CompletableFuture<Void> applyLauncherUpdate();
     void shutdown();
 
     record LauncherInitData(List<AuthMethod> methods) {}
@@ -125,6 +133,15 @@ public interface LauncherBackendAPI {
         }
 
         public void onExit() {
+
+        }
+
+        /**
+         * A periodic check found a new launcher version while the launcher is running.
+         * Called again on every following check until {@link LauncherBackendAPI#applyLauncherUpdate()} is used.
+         * Not called on the main thread.
+         */
+        public void onLauncherUpdateAvailable(CoreFeatureAPI.LauncherUpdateInfo info) {
 
         }
 

@@ -249,6 +249,11 @@ public final class LaunchServerConfig {
         public int memoryLimit = 256;
         public boolean experimentalDevOnlyHttpApi;
         public boolean alwaysUseRelauncher;
+        /**
+         * How often (in minutes) a running launcher checks whether a new launcher version is available.
+         * 0 disables periodic checks (the launcher then checks only on startup).
+         */
+        public long updateCheckIntervalMinutes = 30;
         public LauncherApiConf api = new LauncherApiConf();
     }
 

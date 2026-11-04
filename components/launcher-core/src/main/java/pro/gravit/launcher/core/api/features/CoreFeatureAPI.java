@@ -9,7 +9,15 @@ public interface CoreFeatureAPI {
     CompletableFuture<List<AuthMethod>> getAuthMethods();
     CompletableFuture<LauncherUpdateInfo> checkUpdates();
 
-    record LauncherUpdateInfo(String url, String version, boolean available, boolean required) {}
+    /**
+     * @param checkIntervalMinutes how often a running launcher should check for updates again,
+     *                             as configured on the LaunchServer; 0 disables periodic checks
+     */
+    record LauncherUpdateInfo(String url, String version, boolean available, boolean required, long checkIntervalMinutes) {
+        public LauncherUpdateInfo(String url, String version, boolean available, boolean required) {
+            this(url, version, available, required, 0);
+        }
+    }
 
     enum UpdateVariant {
         JAR,

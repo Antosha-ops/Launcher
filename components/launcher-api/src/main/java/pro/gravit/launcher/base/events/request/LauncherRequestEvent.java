@@ -19,6 +19,11 @@ public class LauncherRequestEvent extends RequestEvent implements ExtendedTokenR
     public byte[] binary;
     @LauncherNetworkAPI
     public boolean needUpdate;
+    /**
+     * How often (in minutes) a running launcher should check for updates again. 0 - never.
+     */
+    @LauncherNetworkAPI
+    public long updateCheckIntervalMinutes;
     public String launcherExtendedToken;
     public long launcherExtendedTokenExpire;
 

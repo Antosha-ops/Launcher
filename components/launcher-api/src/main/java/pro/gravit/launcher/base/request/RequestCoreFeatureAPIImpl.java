@@ -26,6 +26,6 @@ public class RequestCoreFeatureAPIImpl implements CoreFeatureAPI {
     @Override
     public CompletableFuture<LauncherUpdateInfo> checkUpdates() {
         return request.request(new LauncherRequest()).thenApply(response -> new LauncherUpdateInfo(response.url,
-                "Unknown", response.needUpdate, response.needUpdate));
+                "Unknown", response.needUpdate, response.needUpdate, response.updateCheckIntervalMinutes));
     }
 }
