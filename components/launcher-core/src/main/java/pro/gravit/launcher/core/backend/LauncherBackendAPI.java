@@ -2,6 +2,7 @@ package pro.gravit.launcher.core.backend;
 
 import pro.gravit.launcher.core.LauncherNetworkAPI;
 import pro.gravit.launcher.core.api.features.CoreFeatureAPI;
+import pro.gravit.launcher.core.api.features.NotificationFeatureAPI;
 import pro.gravit.launcher.core.api.features.ProfileFeatureAPI;
 import pro.gravit.launcher.core.api.method.AuthMethod;
 import pro.gravit.launcher.core.api.method.AuthMethodPassword;
@@ -106,10 +107,6 @@ public interface LauncherBackendAPI {
 
     // Callbacks
 
-    enum NotificationType {
-        INFO, WARN, ERROR, OTHER
-    }
-
     class MainCallback {
         // On any request
         public void onChangeStatus(String status) {
@@ -128,7 +125,7 @@ public interface LauncherBackendAPI {
 
         }
 
-        public void onNotify(String header, String description, NotificationType type) {
+        public void onNotify(String header, String description, NotificationFeatureAPI.NotificationType type) {
             onNotify(header, description);
         }
 

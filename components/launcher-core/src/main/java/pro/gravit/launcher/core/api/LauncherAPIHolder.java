@@ -2,6 +2,7 @@ package pro.gravit.launcher.core.api;
 
 import pro.gravit.launcher.core.api.features.AuthFeatureAPI;
 import pro.gravit.launcher.core.api.features.CoreFeatureAPI;
+import pro.gravit.launcher.core.api.features.NotificationFeatureAPI;
 import pro.gravit.launcher.core.api.features.ProfileFeatureAPI;
 import pro.gravit.launcher.core.api.features.UserFeatureAPI;
 
@@ -11,12 +12,17 @@ import java.util.function.Function;
 
 public final class LauncherAPIHolder {
     private static volatile CoreFeatureAPI coreAPI;
+    private static volatile NotificationFeatureAPI notificationAPI;
     private static volatile LauncherAPI api;
     private static volatile Function<String, LauncherAPI> createApiFactory;
     private static final Map<String, LauncherAPI> map = new ConcurrentHashMap<>();
 
     public static void setCoreAPI(CoreFeatureAPI coreAPI) {
         LauncherAPIHolder.coreAPI = coreAPI;
+    }
+
+    public static void setNotificationAPI(NotificationFeatureAPI notificationAPI) {
+        LauncherAPIHolder.notificationAPI = notificationAPI;
     }
 
     public static void setApi(LauncherAPI api) {
@@ -41,6 +47,13 @@ public final class LauncherAPIHolder {
 
     public static CoreFeatureAPI core() {
         return coreAPI;
+    }
+
+    /**
+     * @return server notifications API, or null if the current API mode does not support them
+     */
+    public static NotificationFeatureAPI notification() {
+        return notificationAPI;
     }
 
     public static AuthFeatureAPI auth() {

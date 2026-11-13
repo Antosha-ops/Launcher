@@ -124,6 +124,7 @@ public class LauncherAPIInitializer {
             Request.startAutoRefresh();
         }
         RequestCoreFeatureAPIImpl coreImpl = new RequestCoreFeatureAPIImpl(Request.getRequestService());
+        LauncherAPIHolder.setNotificationAPI(coreImpl);
         setupApi(coreImpl, (authId) -> {
             var impl = new RequestFeatureAPIImpl(Request.getRequestService(), authId);
             return createApi(impl, impl, impl, impl, impl);
